@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="ms-MY">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Kemahiran Pemulihan: Operasi Tambah (Top 5 Aktiviti)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { box-sizing: border-box; }
+    .activity-card { min-height: 420px; }
+    .number-card { transition: all .2s ease; cursor: pointer; }
+    .number-card:hover { transform: translateY(-2px); }
+    .dragging { opacity: .5; transform: rotate(3deg); }
+    .drop-zone { border: 2px dashed #cbd5e1; transition: all .2s ease; min-width: 70px; min-height: 56px; display:inline-flex; align-items:center; justify-content:center; }
+    .drop-zone.drag-over { border-color:#3b82f6; background:#eff6ff; }
+    .drop-zone-filled { border-style: solid; border-color:#22c55e; background:#f0fdf4; }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+    .shake { animation: shake .4s; }
+    .good { outline: 3px solid #22c55e; background:#dcfce7; }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-purple-50 min-h-screen">
+
+  <!-- Info bar -->
+  <div class="bg-yellow-100 border-b-4 border-yellow-300 p-4 shadow-sm sticky top-0 z-10">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="text-2xl">📚</span>
+        <span id="info-text" class="text-lg font-semibold text-gray-800">
+          Pilih aktiviti untuk mula belajar operasi tambah!
+        </span>
+      </div>
+      <button id="speak-btn"
+              class="bg-yellow-300 hover:bg-yellow-400 text-yellow-800 font-bold py-2 px-4 rounded-full text-xl transition-colors duration-200"
+              onclick="speakInfo()">
+        🔊
+      </button>
+    </div>
+  </div>
+
+  <div class="max-w-6xl mx-auto p-6">
+    <!-- Activity card -->
+    <div class="bg-white rounded-xl shadow-lg p-6 mb-6 activity-card flex items-center justify-center">
+      <div id="activity-content" class="text-center w-full">
+        <div class="py-16">
+          <div class="text-6xl mb-4">➕</div>
+          <h2 class="text-3xl font-bold text-gray-800 mb-4">
+            PdP Interaktif: Operasi Tambah (Top 5 Aktiviti)
+          </h2>
+          <p class="text-xl text-gray-600 mb-8">
+            Fokus pada tambah 3 nombor & melengkapkan ayat matematik.
+          </p>
+          <div class="text-4xl">👇</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Activity picker -->
+    <div class="bg-white rounded-xl shadow-lg p-6">
+      <h3 class="text-2xl font-bold text-gray-800 mb-4 text-center">Pilih Aktiviti</h3>
+      <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+        <button onclick="loadActivity(1)" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg text-lg">🎯 MCQ 3 Nombor</button>
+        <button onclick="loadActivity(2)" class="bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 px-4 rounded-lg text-lg">✅❌ True/False</button>
+        <button onclick="loadActivity(3)" class="bg-pink-600 hover:bg-pink-700 text-white font-bold py-3 px-4 rounded-lg text-lg">🃏 Padanan</button>
+        <button onclick="loadActivity(4)" class="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-4 rounded-lg text-lg">🟨 Isi Tempat Kosong</button>
+        <button onclick="loadActivity(5)" class="bg-rose-600 hover:bg-rose-700 text-white font-bold py-3 px-4 rounded-lg text-lg">🧲 Seret ke Ruang Kosong</button>
+      </div>
+
+      <div class="flex justify-center gap-4">
+        <button onclick="clearActivity()" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg text-lg">🧹 Bersih</button>
+        <button onclick="nextActivity()" class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg text-lg">➡️ Seterusnya</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentActivity = 0;
+    let ttsEnabled = false;
+    let currentInfo = "Pilih aktiviti untuk mula belajar operasi tambah!";
+    let draggedElement = null;
+
+    /* ====== TTS ====== */
+    function speak(text) {
+      if (!ttsEnabled) return;
+      if (!('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      setTimeout(() => {
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = 'ms-MY';
+        u.rate = 0.95; u.pitch = 1.04;
+        const voices = window.speechSynthesis.getVoices();
+        const ms = voices.find(v => v.lang === 'ms-MY' || v.lang?.startsWith('ms'));
+        if (ms) u.voice = ms;
+        window.speechSynthesis.speak(u);
+      }, 100);
+    }
+    function setInfo(text) { currentInfo = text; document.getElementById('info-text').textContent = text; }
+    function speakInfo() {
+      if (!ttsEnabled) {
+        ttsEnabled = true;
+        const btn = document.getElementById('speak-btn');
+        btn.classList.add('bg-green-300','hover:bg-green-400');
+        btn.classList.remove('bg-yellow-300','hover:bg-yellow-400');
+      }
+      speak(currentInfo);
+    }
+
+    /* ====== DnD helpers ====== */
+    function dragStart(e) { draggedElement = e.target; e.target.classList.add('dragging'); }
+    function dragEnd(e) { e.target.classList.remove('dragging'); document.querySelectorAll('.drop-zone').forEach(z=>z.classList.remove('drag-over')); }
+    function allowDrop(e) { e.preventDefault(); if (e.currentTarget.classList.contains('drop-zone')) e.currentTarget.classList.add('drag-over'); }
+    function dragLeave(e) { if (e.currentTarget.classList.contains('drop-zone')) e.currentTarget.classList.remove('drag-over'); }
+
+    /* ====== Util ====== */
+    const r = (min,max)=>Math.floor(Math.random()*(max-min+1))+min;
+
+    function rndAdd3() {
+      const a=r(1,9), b=r(1,9), c=r(1,9);
+      return {a,b,c,total:a+b+c};
+    }
+    function makeOptions(correct, spread=4, count=3) {
+      const set=new Set([correct]);
+      while(set.size<count){
+        const delta = r(1,spread)* (Math.random()>.5?1:-1);
+        set.add(Math.max(0, correct+delta));
+      }
+      return Array.from(set).sort(()=>Math.random()-0.5);
+    }
+
+    /* ====== Router ====== */
+    function loadActivity(n) {
+      currentActivity = n;
+      const c = document.getElementById('activity-content');
+      if (n===1) return loadMCQ(c);
+      if (n===2) return loadTrueFalse(c);
+      if (n===3) return loadMatchingPairs(c);
+      if (n===4) return loadFillBlank(c);
+      if (n===5) return loadDragToBlank(c);
+    }
+
+    /* ====== 1) MCQ (Click to Select) ====== */
+    function loadMCQ(c){
+      const Q = rndAdd3();
+      setInfo("Pilih jawapan betul untuk operasi tambah tiga nombor.");
+      const opts = makeOptions(Q.total,4,4);
+      c.innerHTML = `
+        <h3 class="text-2xl font-bold text-blue-600 mb-4">🎯 MCQ – Tambah 3 Nombor</h3>
+        <div class="text-xl text-gray-800 mb-6">Berapakah nilai <span class="font-bold">${Q.a} + ${Q.b} + ${Q.c}</span> ?</div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          ${opts.map(v=>`
+            <button class="number-card bg-blue-50 border-2 border-blue-200 rounded-xl p-4 text-2xl font-bold"
+              onclick="checkMCQ(this, ${v}, ${Q.total})">${v}</button>
+          `).join('')}
+        </div>
+        <div id="mcq-msg" class="text-lg font-semibold text-center"></div>
+        <div class="mt-6 text-center">
+          <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl" onclick="loadMCQ(document.getElementById('activity-content'))">🔄 Soalan Baharu</button>
+        </div>
+      `;
+    }
+    function checkMCQ(btn, val, correct){
+      const box=document.getElementById('mcq-msg');
+      if(val===correct){ btn.classList.add('good'); box.textContent="Bagus! Jawapan betul."; setInfo("Bagus! Jawapan betul."); speak("Bagus!"); }
+      else { btn.classList.add('shake'); box.textContent="Cuba lagi."; setInfo("Cuba lagi."); speak("Cuba lagi."); }
+    }
+
+    /* ====== 2) True/False ====== */
+    function loadTrueFalse(c){
+      const Q=rndAdd3();
+      const isTrue=Math.random()>.5;
+      const val = isTrue?Q.total:Q.total + (Math.random()>.5?1:-1)*r(1,4);
+      setInfo("Tentukan Betul atau Salah untuk ayat tambah tiga nombor.");
+      c.innerHTML = `
+        <h3 class="text-2xl font-bold text-sky-600 mb-4">✅❌ True / False</h3>
+        <div class="text-xl text-gray-800 mb-6"><span class="font-bold">${Q.a} + ${Q.b} + ${Q.c}</span> = <span class="font-bold">${val}</span></div>
+        <div class="flex gap-3 justify-center">
+          <button class="bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-xl" onclick="answerTF(${isTrue}, true)">✅ Betul</button>
+          <button class="bg-red-600 hover:bg-red-700 text-white px-5 py-3 rounded-xl" onclick="answerTF(${isTrue}, false)">❌ Salah</button>
+        </div>
+        <div id="tf-msg" class="mt-6 text-lg font-semibold text-center"></div>
+        <div class="mt-4 text-center">
+          <button class="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-xl" onclick="loadTrueFalse(document.getElementById('activity-content'))">🔄 Soalan Baharu</button>
+        </div>
+      `;
+    }
+    function answerTF(isTrue, user){
+      const el=document.getElementById('tf-msg');
+      if(isTrue===user){ el.textContent="Tepat!"; setInfo("Tepat!"); speak("Tepat!"); }
+      else { el.textContent="Kurang tepat. Cuba lagi."; setInfo("Kurang tepat."); speak("Kurang tepat."); }
+    }
+
+    /* ====== 3) Matching Pairs ====== */
+    function loadMatchingPairs(c){
+      setInfo("Padankan ayat matematik dengan jawapannya.");
+      const eqs=[]; const ans=[];
+      for(let i=0;i<4;i++){
+        const a=r(6,40), b=r(6,40); const s=a+b;
+        eqs.push({id:'q'+i, text:`${a} + ${b}`, sum:s});
+        ans.push({id:'a'+i, text:String(s)});
+      }
+      const shuffle = arr=>arr.sort(()=>Math.random()-0.5);
+      c.innerHTML = `
+        <h3 class="text-2xl font-bold text-pink-600 mb-4">🃏 Padanan</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <div class="text-sm font-semibold text-slate-600 mb-2">Ayat Matematik</div>
+            <div id="pairs-left" class="flex flex-col gap-3">
+              ${eqs.map(q=>`
+                <div class="bg-pink-50 border-2 border-pink-200 rounded-lg p-3 flex justify-between items-center">
+                  <span class="text-lg font-bold">${q.text}</span>
+                  <span class="drop-zone w-20 h-10" ondrop="dropPair(event, ${q.sum})" ondragover="allowDrop(event)" ondragleave="dragLeave(event)"></span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          <div>
+            <div class="text-sm font-semibold text-slate-600 mb-2">Jawapan</div>
+            <div id="pairs-right" class="flex flex-wrap gap-3">
+              ${shuffle(ans).map(a=>`
+                <div class="number-card bg-white border-2 border-pink-200 rounded-lg p-3 text-lg font-bold cursor-move"
+                     draggable="true" ondragstart="dragStart(event)" ondragend="dragEnd(event)" data-val="${a.text}">
+                  ${a.text}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+        <div id="pair-msg" class="mt-4 text-center font-semibold"></div>
+      `;
+      window._pairsToGo = eqs.length;
+    }
+    function dropPair(e, sum){
+      e.preventDefault(); e.currentTarget.classList.remove('drag-over');
+      if(!draggedElement) return;
+      const v=parseInt(draggedElement.dataset.val);
+      if(v===sum){
+        e.currentTarget.textContent=v;
+        e.currentTarget.classList.add('drop-zone-filled');
+        draggedElement.remove(); draggedElement=null;
+        window._pairsToGo--;
+        if(window._pairsToGo===0){ document.getElementById('pair-msg').textContent='Semua padanan betul!'; setInfo('Semua padanan betul!'); speak('Syabas!'); }
+      } else {
+        e.currentTarget.classList.add('shake'); setTimeout(()=>e.currentTarget.classList.remove('shake'),400);
+        setInfo('Padanan belum tepat.'); speak('Belum tepat.');
+      }
+    }
+
+    /* ====== 4) Fill in the Blank (Dropdown) ====== */
+    function loadFillBlank(c){
+      const Q=rndAdd3();
+      const blankIdx=r(1,3);
+      let expr = `${Q.a} + ${Q.b} + ${Q.c} = ${Q.total}`;
+      let correct;
+      if(blankIdx===1){ correct=Q.a; expr = `__ + ${Q.b} + ${Q.c} = ${Q.total}`; }
+      if(blankIdx===2){ correct=Q.b; expr = `${Q.a} + __ + ${Q.c} = ${Q.total}`; }
+      if(blankIdx===3){ correct=Q.c; expr = `${Q.a} + ${Q.b} + __ = ${Q.total}`; }
+      const options = makeOptions(correct,5,4);
+      setInfo("Pilih nilai yang sesuai pada tempat kosong.");
+      c.innerHTML = `
+        <h3 class="text-2xl font-bold text-cyan-600 mb-4">🟨 Isi Tempat Kosong</h3>
+        <div class="text-xl text-gray-800 mb-4">${expr}</div>
+        <select id="fib-sel" class="border-2 border-cyan-300 rounded-lg p-2 text-lg">
+          <option value="">-- Pilih jawapan --</option>
+          ${options.map(o=>`<option>${o}</option>`).join('')}
+        </select>
+        <button class="ml-2 bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg" onclick="checkFIB(${correct})">Semak</button>
+        <div id="fib-msg" class="mt-4 font-semibold text-center"></div>
+      `;
+    }
+    function checkFIB(correct){
+      const v=parseInt(document.getElementById('fib-sel').value||'-1');
+      const el=document.getElementById('fib-msg');
+      if(v===correct){ el.textContent='Betul!'; setInfo('Betul!'); speak('Betul!'); }
+      else { el.textContent='Belum betul. Cuba lagi.'; setInfo('Belum betul.'); speak('Belum betul.'); }
+    }
+
+    /* ====== 5) Drag to Blank (25 + __ = 59) ====== */
+    function loadDragToBlank(c){
+      const left = r(10,40);
+      const right = r(left+5, 90);
+      const need = right - left;
+      const pool = Array.from(new Set([need, need+1, Math.max(1,need-1), need+2, Math.max(1,need-2)])).sort(()=>Math.random()-0.5);
+      setInfo("Seret nombor ke ruang kosong untuk melengkapkan ayat matematik.");
+      c.innerHTML = `
+        <h3 class="text-2xl font-bold text-rose-600 mb-4">🧲 Seret ke Ruang Kosong</h3>
+        <div class="text-xl text-gray-800 mb-6">${left} + <span class="drop-zone px-4 py-2" ondrop="dropToBlank(event, ${need})" ondragover="allowDrop(event)" ondragleave="dragLeave(event)">__</span> = ${right}</div>
+        <div class="flex flex-wrap gap-3 justify-center">
+          ${pool.map(n=>`
+            <div class="number-card bg-rose-50 border-2 border-rose-200 rounded-lg p-3 text-xl font-bold text-rose-800 cursor-move"
+                 draggable="true" ondragstart="dragStart(event)" ondragend="dragEnd(event)" data-number="${n}">${n}</div>
+          `).join('')}
+        </div>
+        <div id="b5-msg" class="mt-5 text-center font-semibold"></div>
+      `;
+    }
+    function dropToBlank(e, correct){
+      e.preventDefault(); e.currentTarget.classList.remove('drag-over');
+      if(!draggedElement) return;
+      const v=parseInt(draggedElement.dataset.number);
+      if(v===correct){
+        e.currentTarget.textContent=v;
+        e.currentTarget.classList.add('drop-zone-filled');
+        draggedElement.remove(); draggedElement=null;
+        setInfo('Betul!'); speak('Betul!');
+        document.getElementById('b5-msg').textContent='Syabas!';
+      } else {
+        setInfo('Belum tepat. Cuba lagi.'); speak('Cuba lagi.');
+        e.currentTarget.classList.add('shake'); setTimeout(()=>e.currentTarget.classList.remove('shake'),400);
+      }
+    }
+
+    /* ====== Kawalan Umum ====== */
+    function clearActivity() {
+      currentActivity = 0;
+      document.getElementById('activity-content').innerHTML = `
+        <div class="text-center py-16">
+          <div class="text-6xl mb-4">➕</div>
+          <h2 class="text-3xl font-bold text-gray-800 mb-4">PdP Interaktif: Operasi Tambah (Top 5 Aktiviti)</h2>
+          <p class="text-xl text-gray-600 mb-8">Fokus pada tambah 3 nombor & melengkapkan ayat matematik.</p>
+          <div class="text-4xl">👇</div>
+        </div>
+      `;
+      setInfo("Pilih aktiviti untuk mula belajar operasi tambah!");
+    }
+    function nextActivity() {
+      if (currentActivity === 0) return loadActivity(1);
+      if (currentActivity < 5) return loadActivity(currentActivity + 1);
+      return loadActivity(1);
+    }
+
+    // Pastikan TTS terus aktif pada sesetengah pelayar
+    if ('speechSynthesis' in window) {
+      setInterval(() => { if (window.speechSynthesis.paused) window.speechSynthesis.resume(); }, 1000);
+    }
+  </script>
+</body>
+</html>
